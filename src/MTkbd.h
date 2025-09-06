@@ -79,6 +79,8 @@ public:
     void SetPatternMS(uint32_t minMS = 2500, uint32_t maxMS = 5000);
     uint32_t GetPatternMinMS();
     uint32_t GetPatternMaxMS();
+    void SetPatternTimeout(uint32_t timeoutMS = 30000);
+    uint32_t GetPatternTimeout();
     uint8_t GetKeyCodeOfPin(uint8_t pin);
     bool SetPatternKeyPin(uint32_t pin);
     uint32_t GetPatternKeyPin();
@@ -87,7 +89,6 @@ public:
     bool Available();
     void Handled();
 
-
 private:
     void clearPattern();
     void clearData();
@@ -95,6 +96,7 @@ private:
     std::array<char, 2> byte_to_hex(uint8_t b);
     void patternReady();
 
+    bool _initError = false;               // initialize error -> don't loop
     uint8_t _numKeys;                      // number of key pins
     uint8_t *_keys;                        // array of key pins
                                            //
@@ -129,6 +131,7 @@ private:
     uint32_t _infoResponse = 500;          // timeout for display key duration
     uint32_t _patternMinMS = 2500;         // min timeout before start pattern mode
     uint32_t _patternMaxMS = 5000;         // max timeout to start pattern mode
+    uint32_t _patternTimeout = 30000;      // timeout if no key pressed to exit pattern mode
     uint8_t _maxPatternLength = 8;         // max length of pattern buffer
                                            //
     bool _showLongPressInfo = true;        // show info when key is long pressed every _infoResponse

@@ -32,6 +32,8 @@ MTkbd::MTkbd()
 {
     _patternMode = PATTERN_NONE;
     clearPattern();
+    _keyCode = 0;
+    _lastKeyCode = 0;
     clearData();
 }
 MTkbd::~MTkbd()
@@ -50,6 +52,8 @@ bool MTkbd::Begin(const bool activeLow, const uint8_t numKeys, const uint8_t key
     _activeLow = activeLow;
     if (numKeys < 1 || numKeys > 8)
     {
+        OUTPORT.println(F("MTkbd ERROR: key array allow only 1..8 keys!"));
+        _initError = true;
         return false;
     }
 
@@ -57,6 +61,20 @@ bool MTkbd::Begin(const bool activeLow, const uint8_t numKeys, const uint8_t key
     _keys = new uint8_t[_numKeys];
     for (uint8_t idx = 0; idx < _numKeys; idx++)
     {
+        if (idx > 0)
+        {
+            for (uint8_t tst = 0; tst < idx; tst++)
+            {
+                if (_keys[tst] == keys[idx])
+                {
+                    OUTPORT.print(F("MTkbd ERROR: duplicate use of key io pin detected! Key IO pin "));
+                    OUTPORT.println(keys[idx]);
+                    _initError = true;
+                    return false;
+                }
+            }
+        }
+
         _keys[idx] = keys[idx];
         if (_activeLow)
             pinMode(_keys[idx], INPUT_PULLUP);
@@ -65,12 +83,14 @@ bool MTkbd::Begin(const bool activeLow, const uint8_t numKeys, const uint8_t key
     }
     _patternKey = _keys[0];
     clearPattern();
+    _keyCode = 0;
+    _lastKeyCode = 0;
     clearData();
     return true;
 }
 
 uint8_t MTkbd::KeyCode() { return _keyCode; }
-uint8_t MTkbd::Repeat() { return _repeatNr > 0 ? _repeatNr + 1 : 0; }
+uint8_t MTkbd::Repeat() { return _repeatNr == 0 ? 0 : _repeatNr + 1; }
 uint32_t MTkbd::Duration() { return _durationMS; }
 bool MTkbd::IsPattern() { return _patternMode != PATTERN_NONE; }
 String MTkbd::Pattern() { return String(_patternString); }
@@ -147,6 +167,14 @@ uint32_t MTkbd::GetPatternMinMS() { return _patternMinMS; }
 /// @return timeout
 uint32_t MTkbd::GetPatternMaxMS() { return _patternMaxMS; }
 
+/// @brief Set timeout if no key pressed in pattern mode -> exit pattern mode
+/// @param timeoutMS in ms
+void MTkbd::SetPatternTimeout(uint32_t timeoutMS) { _patternTimeout = timeoutMS; }
+
+/// @brief Get timeout if no key pressed in pattern mode -> exit pattern mode
+/// @return timeout in ms
+uint32_t MTkbd::GetPatternTimeout() { return _patternTimeout; };
+
 /// @brief get the keycode for a key pin number
 /// @param pin io pin of the key
 /// @return keycode of this key when pressed
@@ -173,6 +201,8 @@ bool MTkbd::SetPatternKeyPin(uint32_t pin)
             return true;
         }
     }
+    OUTPORT.println(F("MTkbd WARNING: pattern key io pin not found use first key in array"));
+    _patternKey = _keys[0];
     return false;
 }
 
@@ -183,6 +213,8 @@ uint32_t MTkbd::GetPatternKeyPin() { return _patternKey; }
 /// @brief Loop keyboard should run in loop()
 void MTkbd::Loop()
 {
+    if (_initError)
+        return;
     if (!_waitHandled || (_waitHandled & !_keyCodeReady))
     {
         _rawReadMS = (uint32_t)(esp_timer_get_time() / 1000);
@@ -250,6 +282,21 @@ void MTkbd::Loop()
                             _keyCodeReady = true;
                             _durationMS = _releaseMS - _firstPressMS;
                         }
+                        else
+                        {
+                            // if (_keyCode == _lastKeyCode) // keycode is lastkeycode
+                            // {
+                            //     if (_releaseMS > 0)
+                            //     {
+                            //         _repeatNr++;
+                            //     }
+                            // }
+                            // else
+                            // {
+                            //     _releaseMS = 0;
+                            //     _lastKeyCode = 0;
+                            // }
+                        }
                     }
                     else if (_patternMode == PATTERN_RUN)
                     {
@@ -295,6 +342,11 @@ void MTkbd::Loop()
                             _keyCode = 0;
                             _lastKeyCode = 0;
                         }
+                        if ((_rawReadMS - _lastPressMS) > _patternTimeout)
+                        {
+                            OUTPORT.println(F("KBD PatternMode pattern timeout"));
+                            patternReady();
+                        }
                     }
                 }
             }
@@ -312,6 +364,7 @@ void MTkbd::Loop()
                         if (_releaseMS > 0)
                         {
                             _repeatNr++;
+                            _releaseMS = 0;
                         }
                     }
                     else
@@ -360,6 +413,8 @@ void MTkbd::Handled()
     _keyCodeReady = false;
     _patternMode = PATTERN_NONE;
     _patternPos = 0;
+    _keyCode = 0;
+    _lastKeyCode = 0;
     clearPattern();
     clearData();
 }
@@ -379,8 +434,6 @@ void MTkbd::clearPattern()
 /// @brief private for clear data
 void MTkbd::clearData()
 {
-    _keyCode = 0;
-    _lastKeyCode = 0;
     _firstPressMS = 0;
     _lastPressMS = 0;
     _durationMS = 0;
@@ -409,4 +462,7 @@ void MTkbd::patternReady()
     _patternMode = PATTERN_READY;
     _patternString = String(_pattern);
     _keyCodeReady = true;
+    _keyCode = 0;
+    _lastKeyCode = 0;
+    clearData();
 }
