@@ -44,12 +44,15 @@ public:
         PATTERN_START,
         PATTERN_RUN,
         PATTERN_END,
-        PATTERN_READY
+        PATTERN_READY,
+        PATTERN_MAX
     };
+
+    const String pattern_s[PATTERN_MAX] = {F("NONE"), F("START"), F("RUN"), F("END"), F("READY")};
 
     MTkbd();
     ~MTkbd();
-    bool begin(const bool activeLow = true,
+    bool Begin(const bool activeLow = true,
                const uint8_t numKeys = 4,
                const uint8_t keys[] = new uint8_t[4]{0, 2, 4, 36});
 
@@ -59,34 +62,38 @@ public:
     bool IsPattern();
     String Pattern();
 
-    void setWaitHandled(bool waitHandled);
-    bool getWaitHandled();
-    void setShowInfo(bool showInfo);
-    bool getShowInfo();
-    void setShowPattern(bool showPattern);
-    bool getShowPattern();
-    void setMaxPatternLength(uint8_t maxPatternLength);
-    uint8_t getMaxPatternLength();
-    void setBounceMS(uint32_t ms);
-    uint32_t getBounceMS();
-    void setDoubleClickMS(uint32_t ms);
-    uint32_t getDoubleClickMS();
-    void setInfoResponse(uint32_t ms);
-    uint32_t getInfoResponse();
-    void setPatternMS(uint32_t ms);
-    uint32_t getPatternMS();
+    void SetWaitHandled(bool waitHandled);
+    bool GetWaitHandled();
+    void SetShowInfo(bool showInfo);
+    bool GetShowInfo();
+    void SetShowPattern(bool showPattern);
+    bool GetShowPattern();
+    void SetMaxPatternLength(uint8_t maxPatternLength);
+    uint8_t GetMaxPatternLength();
+    void SetBounceMS(uint32_t ms);
+    uint32_t GetBounceMS();
+    void SetDoubleClickMS(uint32_t ms);
+    uint32_t GetDoubleClickMS();
+    void SetInfoResponse(uint32_t ms);
+    uint32_t GetInfoResponse();
+    void SetPatternMS(uint32_t minMS = 2500, uint32_t maxMS = 5000);
+    uint32_t GetPatternMinMS();
+    uint32_t GetPatternMaxMS();
+    uint8_t GetKeyCodeOfPin(uint8_t pin);
+    bool SetPatternKeyPin(uint32_t pin);
+    uint32_t GetPatternKeyPin();
 
-    void loop();
-    bool available();
-    void handled();
+    void Loop();
+    bool Available();
+    void Handled();
 
-    uint8_t getKeyCodeOfPin(uint8_t pin);
 
 private:
     void clearPattern();
     void clearData();
     char hex_digit(uint8_t v);
     std::array<char, 2> byte_to_hex(uint8_t b);
+    void patternReady();
 
     uint8_t _numKeys;                      // number of key pins
     uint8_t *_keys;                        // array of key pins
@@ -120,7 +127,8 @@ private:
     uint32_t _bounceMS = 50;               // bouce time before keycode become valid
     uint32_t _doubleClickMS = 300;         // double click time before keycode become ready to handle
     uint32_t _infoResponse = 500;          // timeout for display key duration
-    uint32_t _patternMS = 2500;            // timeount before start pattern mode
+    uint32_t _patternMinMS = 2500;         // min timeout before start pattern mode
+    uint32_t _patternMaxMS = 5000;         // max timeout to start pattern mode
     uint8_t _maxPatternLength = 8;         // max length of pattern buffer
                                            //
     bool _showLongPressInfo = true;        // show info when key is long pressed every _infoResponse

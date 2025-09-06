@@ -44,7 +44,7 @@ MTkbd::~MTkbd()
 /// @param numKeys number of keys to handle with keyboard (1..8)
 /// @param keys array of the key pins lsb to msb
 /// @return true if settings are correct
-bool MTkbd::begin(const bool activeLow, const uint8_t numKeys, const uint8_t keys[])
+bool MTkbd::Begin(const bool activeLow, const uint8_t numKeys, const uint8_t keys[])
 {
     _patternMode = PATTERN_NONE;
     _activeLow = activeLow;
@@ -63,6 +63,7 @@ bool MTkbd::begin(const bool activeLow, const uint8_t numKeys, const uint8_t key
         else
             pinMode(_keys[idx], INPUT_PULLDOWN);
     }
+    _patternKey = _keys[0];
     clearPattern();
     clearData();
     return true;
@@ -76,70 +77,111 @@ String MTkbd::Pattern() { return String(_patternString); }
 
 /// @brief set waitHandled, the handled function must be called to continue keyboard loop
 /// @param waitHandled true if handled function must be called
-void MTkbd::setWaitHandled(bool waitHandled) { _waitHandled = waitHandled; }
+void MTkbd::SetWaitHandled(bool waitHandled) { _waitHandled = waitHandled; }
 
 /// @brief set waitHandled, the handled function must be called to continue keyboard loop
 /// @return witHandled
-bool MTkbd::getWaitHandled() { return _waitHandled; }
+bool MTkbd::GetWaitHandled() { return _waitHandled; }
 
 /// @brief set if show key pressed is printed on serial port when longer pressed then showInfo ms
 /// @param showInfo true if show info on serial port
-void MTkbd::setShowInfo(bool showInfo) { _showLongPressInfo = showInfo; }
+void MTkbd::SetShowInfo(bool showInfo) { _showLongPressInfo = showInfo; }
 
 /// @brief set if show key pressed is printed on serial port when longer pressed then showInfo ms
 /// @return true if show info on serial port
-bool MTkbd::getShowInfo() { return _showLongPressInfo; }
+bool MTkbd::GetShowInfo() { return _showLongPressInfo; }
 
 /// @brief set to display pattern when chars are added
 /// @param showPattern true = yes
-void MTkbd::setShowPattern(bool showPattern) { _showPatternInfo = showPattern; }
+void MTkbd::SetShowPattern(bool showPattern) { _showPatternInfo = showPattern; }
 
 /// @brief get if display is on when pattern when chars are added
 /// @return true = yes
-bool MTkbd::getShowPattern() { return _showPatternInfo; }
+bool MTkbd::GetShowPattern() { return _showPatternInfo; }
 
 /// @brief set max length for pattern before automatic end pattern
 /// @param maxPatternLength number of characters pattern will be +1 char for '\0'
-void MTkbd::setMaxPatternLength(uint8_t maxPatternLength) { _maxPatternLength = maxPatternLength; }
+void MTkbd::SetMaxPatternLength(uint8_t maxPatternLength) { _maxPatternLength = maxPatternLength; }
 
 /// @brief get max length for pattern before automatic end pattern
 /// @return number of characters pattern will be -1 char for '\0'
-uint8_t MTkbd::getMaxPatternLength() { return _maxPatternLength; }
+uint8_t MTkbd::GetMaxPatternLength() { return _maxPatternLength; }
 
 /// @brief time in ms before a pressed key is recognized as stable
 /// @param ms timeout
-void MTkbd::setBounceMS(uint32_t ms) { _bounceMS = ms; }
+void MTkbd::SetBounceMS(uint32_t ms) { _bounceMS = ms; }
 
 /// @brief time in ms before a pressed key is recognized as stable
 /// @return timeout
-uint32_t MTkbd::getBounceMS() { return _bounceMS; }
+uint32_t MTkbd::GetBounceMS() { return _bounceMS; }
 
 /// @brief max time between twice pressing the same key to recognize as multiple press
 /// @param ms timeout
-void MTkbd::setDoubleClickMS(uint32_t ms) { _doubleClickMS = ms; }
+void MTkbd::SetDoubleClickMS(uint32_t ms) { _doubleClickMS = ms; }
 
 /// @brief max time between twice pressing the same key to recognize as multiple press
 /// @return timeout
-uint32_t MTkbd::getDoubleClickMS() { return _doubleClickMS; }
+uint32_t MTkbd::GetDoubleClickMS() { return _doubleClickMS; }
 
 /// @brief show info when long press a key after this timout each
 /// @param ms timeout
-void MTkbd::setInfoResponse(uint32_t ms) { _infoResponse = ms; }
+void MTkbd::SetInfoResponse(uint32_t ms) { _infoResponse = ms; }
 
 /// @brief show info when long press a key after this timout each
 /// @return timeout
-uint32_t MTkbd::getInfoResponse() { return _infoResponse; }
+uint32_t MTkbd::GetInfoResponse() { return _infoResponse; }
 
 /// @brief Set key press timeout in ms to enter/exit pattern mode
 /// @param ms timeout
-void MTkbd::setPatternMS(uint32_t ms) { _patternMS = ms; }
+void MTkbd::SetPatternMS(uint32_t minMS, uint32_t maxMS)
+{
+    _patternMinMS = minMS;
+    _patternMaxMS = maxMS;
+}
 
-/// @brief Get key press timeout in ms to enter/exit pattern mode
+/// @brief Get key press min timeout in ms to enter/exit pattern mode
 /// @return timeout
-uint32_t MTkbd::getPatternMS() { return _patternMS; }
+uint32_t MTkbd::GetPatternMinMS() { return _patternMinMS; }
+
+/// @brief Get key press max timeout in ms to enter/exit pattern mode
+/// @return timeout
+uint32_t MTkbd::GetPatternMaxMS() { return _patternMaxMS; }
+
+/// @brief get the keycode for a key pin number
+/// @param pin io pin of the key
+/// @return keycode of this key when pressed
+uint8_t MTkbd::GetKeyCodeOfPin(uint8_t pin)
+{
+    for (uint8_t idx = 0; idx < _numKeys; idx++)
+    {
+        if (_keys[idx] == pin)
+            return 1 << idx;
+    }
+    return 0;
+}
+
+/// @brief set key pin used to start/stop pattern
+/// @param pin key io pin
+/// @return true = success, false if key io pin is not part of the keys array -> begin
+bool MTkbd::SetPatternKeyPin(uint32_t pin)
+{
+    for (uint8_t idx = 0; idx < _numKeys; idx++)
+    {
+        if (_keys[idx] == pin)
+        {
+            _patternKey = pin;
+            return true;
+        }
+    }
+    return false;
+}
+
+/// @brief get the key io pin of the pattern key
+/// @return key io pin
+uint32_t MTkbd::GetPatternKeyPin() { return _patternKey; }
 
 /// @brief Loop keyboard should run in loop()
-void MTkbd::loop()
+void MTkbd::Loop()
 {
     if (!_waitHandled || (_waitHandled & !_keyCodeReady))
     {
@@ -159,14 +201,14 @@ void MTkbd::loop()
             _lastRawKeyCode = _rawKeyCode;
             _stableMS = _rawReadMS;
         }
-        else                                                        // still the same keyCode pressed
-            _keyCodeValid = ((_rawReadMS - _stableMS) > _bounceMS); // keyCode is valid after bounce time
+
+        _keyCodeValid = ((_rawReadMS - _stableMS) > _bounceMS); // keyCode is valid after bounce time
 
         if (_keyCodeValid)
         {
+            _keyDown = _rawKeyCode > 0;
             if (_rawKeyCode > 0)
                 _keyCode = _rawKeyCode;
-            _keyDown = _rawKeyCode != 0;
 
             if (_lastKeyCode != _keyCode) // keycode changed -> print out keycode
             {
@@ -180,70 +222,80 @@ void MTkbd::loop()
                 if (_releaseMS == 0)
                     _releaseMS = _rawReadMS;
 
-                if (_patternMode == PATTERN_NONE)
+                if (_keyCode == GetKeyCodeOfPin(_patternKey) &&
+                    _durationMS > _patternMinMS &&
+                    _durationMS < _patternMaxMS)
                 {
-                    if (_firstPressMS > 0 && ((_stableMS + _doubleClickMS) < _rawReadMS)) // keycode valid for handle >> keyready
+                    if (_patternMode == PATTERN_NONE)
                     {
-                        _keyCodeReady = true;
-                        _durationMS = _releaseMS - _firstPressMS;
+                        _patternMode = PATTERN_START;
+                        if (_showPatternInfo)
+                            OUTPORT.println(F("KBD PatternMode started"));
+                        clearData();
+                        clearPattern();
+                    }
+                    else if (_patternMode == PATTERN_RUN)
+                    {
+                        if (_showPatternInfo)
+                            OUTPORT.println(F("KBD PatternMode ended"));
+                        patternReady();
                     }
                 }
-                else if (_patternMode == PATTERN_START)
+                else
                 {
-                    _patternMode = PATTERN_RUN;
-                    clearData();
-                    clearPattern();
-                }
-                else if (_patternMode == PATTERN_RUN)
-                {
-                    if (_keyCode > 0)
+                    if (_patternMode == PATTERN_NONE)
                     {
-                        if (_numKeys <= 4)
+                        if (_firstPressMS > 0 && ((_stableMS + _doubleClickMS) < _rawReadMS)) // keycode valid for handle >> keyready
                         {
-                            if (_patternPos < (_maxPatternLength))
+                            _keyCodeReady = true;
+                            _durationMS = _releaseMS - _firstPressMS;
+                        }
+                    }
+                    else if (_patternMode == PATTERN_RUN)
+                    {
+                        if (_keyCode > 0)
+                        {
+                            if (_numKeys <= 4)
                             {
-                                char _ch = hex_digit(_keyCode);
-                                _pattern[_patternPos] = _ch;
-                                _patternPos++;
-                                _pattern[_patternPos] = '\0';
-                                if (_showPatternInfo)
-                                    OUTPORT.println("KBD PatternMode add key '" + String(_ch) + "' -> act pattern is '" + String(_pattern) + "'");
+                                if (_patternPos < (_maxPatternLength))
+                                {
+                                    char _ch = hex_digit(_keyCode);
+                                    _pattern[_patternPos] = _ch;
+                                    _patternPos++;
+                                    _pattern[_patternPos] = '\0';
+                                    if (_showPatternInfo)
+                                        OUTPORT.println("KBD PatternMode add key '" + String(_ch) + "' -> act pattern is '" + String(_pattern) + "'");
+                                }
+                                else
+                                {
+                                    OUTPORT.println(F("KBD PatternMode pattern full"));
+                                    patternReady();
+                                }
                             }
                             else
                             {
-                                OUTPORT.println(F("KBD PatternMode pattern full"));
-                                _patternMode = PATTERN_END;
+                                if (_patternPos < (_maxPatternLength - 1))
+                                {
+                                    char _ch0 = byte_to_hex(_keyCode)[0];
+                                    char _ch1 = byte_to_hex(_keyCode)[1];
+                                    _pattern[_patternPos] = _ch0;
+                                    _pattern[_patternPos + 1] = _ch1;
+                                    _patternPos += 2;
+                                    _pattern[_patternPos] = '\0';
+                                    if (_showPatternInfo)
+                                        OUTPORT.println("KBD PatternMode add key '" + String(_ch0) + String(_ch1) + "' -> act pattern is '" + String(_pattern) + "'");
+                                }
+                                else
+                                {
+                                    OUTPORT.println(F("KBD PatternMode pattern full"));
+                                    patternReady();
+                                }
                             }
+                            _patternString = String(_pattern).c_str();
+                            _keyCode = 0;
+                            _lastKeyCode = 0;
                         }
-                        else
-                        {
-                            if (_patternPos < (_maxPatternLength - 1))
-                            {
-                                char _ch0 = byte_to_hex(_keyCode)[0];
-                                char _ch1 = byte_to_hex(_keyCode)[1];
-                                _pattern[_patternPos] = _ch0;
-                                _pattern[_patternPos + 1] = _ch1;
-                                _patternPos += 2;
-                                _pattern[_patternPos] = '\0';
-                                if (_showPatternInfo)
-                                    OUTPORT.println("KBD PatternMode add key '" + String(_ch0) + String(_ch1) + "' -> act pattern is '" + String(_pattern) + "'");
-                            }
-                            else
-                            {
-                                OUTPORT.println(F("KBD PatternMode pattern full"));
-                                _patternMode = PATTERN_END;
-                            }
-                        }
-                        _patternString = String(_pattern).c_str();
-                        _keyCode = 0;
-                        _lastKeyCode = 0;
                     }
-                }
-                else if (_patternMode == PATTERN_END)
-                {
-                    _patternMode = PATTERN_READY;
-                    _patternString = String(_pattern);
-                    _keyCodeReady = true;
                 }
             }
             else // some keys are pressed
@@ -253,46 +305,43 @@ void MTkbd::loop()
                 else
                     _lastPressMS = _rawReadMS;
 
-                if (_keyCode == _lastKeyCode) // keycode is lastkeycode
+                if (_patternMode == PATTERN_NONE)
                 {
-                    if (_releaseMS > 0)
+                    if (_keyCode == _lastKeyCode) // keycode is lastkeycode
                     {
-                        _repeatNr++;
+                        if (_releaseMS > 0)
+                        {
+                            _repeatNr++;
+                        }
                     }
+                    else
+                    {
+                        _releaseMS = 0;
+                        _lastKeyCode = 0;
+                    }
+                }
+                else if (_patternMode == PATTERN_START)
+                {
+                    _patternMode = PATTERN_RUN;
+                    clearPattern();
+                    if (_showPatternInfo)
+                        OUTPORT.println(F("KBD PatternMode ready to enter"));
                 }
                 else
                 {
-                    _releaseMS = 0;
-                    _lastKeyCode = 0;
                 }
+
                 _durationMS = _rawReadMS - _firstPressMS;
 
-                if (_keyCode == getKeyCodeOfPin(_patternKey) && _durationMS > _patternMS)
-                {
-                    if (_patternMode == PATTERN_NONE)
-                    {
-                        _patternMode = PATTERN_START;
-                        if (_showPatternInfo)
-                            OUTPORT.println(F("KBD PatternMode started"));
-                        clearPattern();
-                    }
-                    else if (_patternMode == PATTERN_RUN)
-                    {
-                        _patternMode = PATTERN_END;
-                        if (_showPatternInfo)
-                            OUTPORT.println(F("KBD PatternMode ended"));
-                    }
-                }
-                else if (_repeatNr == 0 &&
-                         _durationMS > _infoResponse &&
-                         _lastInfoMS + _infoResponse < _rawReadMS &&
-                         (_patternMode == PATTERN_NONE || _patternMode == PATTERN_RUN))
+                if (_repeatNr == 0 &&
+                    _durationMS > _infoResponse &&
+                    _lastInfoMS + _infoResponse < _rawReadMS &&
+                    (_patternMode == PATTERN_NONE || _patternMode == PATTERN_RUN))
                 {
                     _lastInfoMS = _rawReadMS;
                     if (_showLongPressInfo)
                         OUTPORT.printf("KBD long pressed KeyCode %i duration %i ms\r\n", _keyCode, _rawReadMS - _firstPressMS);
                 }
-                _releaseMS = 0;
             }
         }
     }
@@ -300,33 +349,19 @@ void MTkbd::loop()
 
 /// @brief key is ready for handling
 /// @return true = ready
-bool MTkbd::available()
+bool MTkbd::Available()
 {
     return _keyCodeReady;
 }
 
 /// @brief after handled call this to reset keyboard for next keys
-void MTkbd::handled()
+void MTkbd::Handled()
 {
     _keyCodeReady = false;
     _patternMode = PATTERN_NONE;
     _patternPos = 0;
     clearPattern();
     clearData();
-}
-
-/// @brief get the keycode for a key pin number
-/// @param pin io pin of the key
-/// @return keycode of this key when pressed
-uint8_t MTkbd::getKeyCodeOfPin(uint8_t pin)
-{
-    uint8_t _code = 1;
-    for (uint8_t idx = 0; idx < _numKeys; idx++)
-    {
-        if (_keys[idx] == pin)
-            return _code << idx;
-    }
-    return 0;
 }
 
 /////////////////////////////////////
@@ -367,4 +402,11 @@ char MTkbd::hex_digit(uint8_t v)
 std::array<char, 2> MTkbd::byte_to_hex(uint8_t b)
 {
     return {hex_digit(b >> 4), hex_digit(b)}; // e.g., 0xAB -> {'a','b'}
+}
+
+void MTkbd::patternReady()
+{
+    _patternMode = PATTERN_READY;
+    _patternString = String(_pattern);
+    _keyCodeReady = true;
 }

@@ -1,6 +1,6 @@
 {
   "name": "MTkbd",
-  "keywords": "ESP32, ESP8266, Arduino, keys, keyboard",
+  "keywords": "ESP32, ESP8266, keys, keyboard",
   "description": "ESP32 library to hadle keys/keyboard click, chores, multiple click, long press",
   "authors":
   [
@@ -15,7 +15,7 @@
     "type": "git",
     "url": "https://github.com/MarcoTinner/MTkbd.git"
   },
-  "version": "0.1.0",
+  "version": "0.1.1",
   "license": "MIT",
   "frameworks": "arduino",
   "platforms": "*"
