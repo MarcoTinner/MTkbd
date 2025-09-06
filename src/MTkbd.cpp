@@ -282,21 +282,6 @@ void MTkbd::Loop()
                             _keyCodeReady = true;
                             _durationMS = _releaseMS - _firstPressMS;
                         }
-                        else
-                        {
-                            // if (_keyCode == _lastKeyCode) // keycode is lastkeycode
-                            // {
-                            //     if (_releaseMS > 0)
-                            //     {
-                            //         _repeatNr++;
-                            //     }
-                            // }
-                            // else
-                            // {
-                            //     _releaseMS = 0;
-                            //     _lastKeyCode = 0;
-                            // }
-                        }
                     }
                     else if (_patternMode == PATTERN_RUN)
                     {
