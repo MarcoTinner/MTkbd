@@ -11,6 +11,7 @@ You have several possible settings for bounce timeout, double click timeout, def
 
 ## Example
 Check out the simple example on how to use the library.
+Added an example how you can use it for checking a password entry.
 
 ## Disclaimer
 Feel free to contact on questions or constructive feedback.

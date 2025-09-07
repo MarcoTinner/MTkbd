@@ -52,7 +52,8 @@ bool MTkbd::Begin(const bool activeLow, const uint8_t numKeys, const uint8_t key
     _activeLow = activeLow;
     if (numKeys < 1 || numKeys > 8)
     {
-        OUTPORT.println(F("MTkbd ERROR: key array allow only 1..8 keys!"));
+        if (outputEnabled)
+            OUTPORT.println(F("MTkbd ERROR: key array allow only 1..8 keys!"));
         _initError = true;
         return false;
     }
@@ -67,8 +68,11 @@ bool MTkbd::Begin(const bool activeLow, const uint8_t numKeys, const uint8_t key
             {
                 if (_keys[tst] == keys[idx])
                 {
-                    OUTPORT.print(F("MTkbd ERROR: duplicate use of key io pin detected! Key IO pin "));
-                    OUTPORT.println(keys[idx]);
+                    if (outputEnabled)
+                    {
+                        OUTPORT.print(F("MTkbd ERROR: duplicate use of key io pin detected! Key IO pin "));
+                        OUTPORT.println(keys[idx]);
+                    }
                     _initError = true;
                     return false;
                 }
@@ -81,7 +85,7 @@ bool MTkbd::Begin(const bool activeLow, const uint8_t numKeys, const uint8_t key
         else
             pinMode(_keys[idx], INPUT_PULLDOWN);
     }
-    _patternKey = _keys[0];
+    _patternKeyCode = 0;
     clearPattern();
     _keyCode = 0;
     _lastKeyCode = 0;
@@ -188,27 +192,26 @@ uint8_t MTkbd::GetKeyCodeOfPin(uint8_t pin)
     return 0;
 }
 
-/// @brief set key pin used to start/stop pattern
-/// @param pin key io pin
+/// @brief set keyCode used to start/stop pattern
+/// @param code KeyCode
 /// @return true = success, false if key io pin is not part of the keys array -> begin
-bool MTkbd::SetPatternKeyPin(uint32_t pin)
-{
-    for (uint8_t idx = 0; idx < _numKeys; idx++)
-    {
-        if (_keys[idx] == pin)
-        {
-            _patternKey = pin;
-            return true;
-        }
-    }
-    OUTPORT.println(F("MTkbd WARNING: pattern key io pin not found use first key in array"));
-    _patternKey = _keys[0];
-    return false;
-}
+void MTkbd::SetPatternKeyCode(uint8_t code) { _patternKeyCode = code; }
 
 /// @brief get the key io pin of the pattern key
 /// @return key io pin
-uint32_t MTkbd::GetPatternKeyPin() { return _patternKey; }
+uint8_t MTkbd::GetPatternKeyCode() { return _patternKeyCode; }
+
+void MTkbd::StartPasswordMode(uint8_t timeoutSec)
+{
+    clearData();
+    clearPattern();
+    _lastKeyCode = 0;
+    _keyCode = 0;
+    _keyCodeReady = false;
+    _patternMode = PATTERN_START;
+    _patternTimeout = timeoutSec * 1000;
+    Serial.println(">>> Start Password Mode");
+}
 
 /// @brief Loop keyboard should run in loop()
 void MTkbd::Loop()
@@ -236,6 +239,27 @@ void MTkbd::Loop()
 
         _keyCodeValid = ((_rawReadMS - _stableMS) > _bounceMS); // keyCode is valid after bounce time
 
+        if (_patternMode == PATTERN_START)
+        {
+            _patternMode = PATTERN_RUN;
+            _keyCode = 0;
+            _lastKeyCode = 0;
+            clearData();
+            clearPattern();
+            _patternModeMS = _rawReadMS;
+            if (_showPatternInfo && outputEnabled)
+                OUTPORT.println(F("KBD PatternMode ready to enter"));
+        }
+        else if (_patternMode == PATTERN_RUN)
+        {
+            if ((_rawReadMS - _patternModeMS) > _patternTimeout)
+            {
+                if (outputEnabled)
+                    OUTPORT.println(F("KBD PatternMode pattern timeout"));
+                patternReady();
+            }
+        }
+
         if (_keyCodeValid)
         {
             _keyDown = _rawKeyCode > 0;
@@ -254,21 +278,23 @@ void MTkbd::Loop()
                 if (_releaseMS == 0)
                     _releaseMS = _rawReadMS;
 
-                if (_keyCode == GetKeyCodeOfPin(_patternKey) &&
+                if (_patternKeyCode > 0 &&
+                    _keyCode == _patternKeyCode &&
                     _durationMS > _patternMinMS &&
                     _durationMS < _patternMaxMS)
                 {
+                    _patternModeMS = _rawReadMS;
                     if (_patternMode == PATTERN_NONE)
                     {
                         _patternMode = PATTERN_START;
-                        if (_showPatternInfo)
+                        if (_showPatternInfo && outputEnabled)
                             OUTPORT.println(F("KBD PatternMode started"));
                         clearData();
                         clearPattern();
                     }
                     else if (_patternMode == PATTERN_RUN)
                     {
-                        if (_showPatternInfo)
+                        if (_showPatternInfo && outputEnabled)
                             OUTPORT.println(F("KBD PatternMode ended"));
                         patternReady();
                     }
@@ -287,6 +313,7 @@ void MTkbd::Loop()
                     {
                         if (_keyCode > 0)
                         {
+                            _patternModeMS = _rawReadMS;
                             if (_numKeys <= 4)
                             {
                                 if (_patternPos < (_maxPatternLength))
@@ -295,12 +322,13 @@ void MTkbd::Loop()
                                     _pattern[_patternPos] = _ch;
                                     _patternPos++;
                                     _pattern[_patternPos] = '\0';
-                                    if (_showPatternInfo)
+                                    if (_showPatternInfo && outputEnabled)
                                         OUTPORT.println("KBD PatternMode add key '" + String(_ch) + "' -> act pattern is '" + String(_pattern) + "'");
                                 }
                                 else
                                 {
-                                    OUTPORT.println(F("KBD PatternMode pattern full"));
+                                    if (outputEnabled)
+                                        OUTPORT.println(F("KBD PatternMode pattern full"));
                                     patternReady();
                                 }
                             }
@@ -314,12 +342,13 @@ void MTkbd::Loop()
                                     _pattern[_patternPos + 1] = _ch1;
                                     _patternPos += 2;
                                     _pattern[_patternPos] = '\0';
-                                    if (_showPatternInfo)
+                                    if (_showPatternInfo & outputEnabled)
                                         OUTPORT.println("KBD PatternMode add key '" + String(_ch0) + String(_ch1) + "' -> act pattern is '" + String(_pattern) + "'");
                                 }
                                 else
                                 {
-                                    OUTPORT.println(F("KBD PatternMode pattern full"));
+                                    if (outputEnabled)
+                                        OUTPORT.println(F("KBD PatternMode pattern full"));
                                     patternReady();
                                 }
                             }
@@ -329,7 +358,8 @@ void MTkbd::Loop()
                         }
                         if ((_rawReadMS - _lastPressMS) > _patternTimeout)
                         {
-                            OUTPORT.println(F("KBD PatternMode pattern timeout"));
+                            if (outputEnabled)
+                                OUTPORT.println(F("KBD PatternMode pattern timeout"));
                             patternReady();
                         }
                     }
@@ -358,16 +388,6 @@ void MTkbd::Loop()
                         _lastKeyCode = 0;
                     }
                 }
-                else if (_patternMode == PATTERN_START)
-                {
-                    _patternMode = PATTERN_RUN;
-                    clearPattern();
-                    if (_showPatternInfo)
-                        OUTPORT.println(F("KBD PatternMode ready to enter"));
-                }
-                else
-                {
-                }
 
                 _durationMS = _rawReadMS - _firstPressMS;
 
@@ -377,7 +397,7 @@ void MTkbd::Loop()
                     (_patternMode == PATTERN_NONE || _patternMode == PATTERN_RUN))
                 {
                     _lastInfoMS = _rawReadMS;
-                    if (_showLongPressInfo)
+                    if (_showLongPressInfo && outputEnabled)
                         OUTPORT.printf("KBD long pressed KeyCode %i duration %i ms\r\n", _keyCode, _rawReadMS - _firstPressMS);
                 }
             }
@@ -397,6 +417,7 @@ void MTkbd::Handled()
 {
     _keyCodeReady = false;
     _patternMode = PATTERN_NONE;
+    _patternModeMS = 0;
     _patternPos = 0;
     _keyCode = 0;
     _lastKeyCode = 0;
@@ -414,6 +435,7 @@ void MTkbd::clearPattern()
     _pattern = new char[_maxPatternLength + 1];
     for (uint8_t i = 0; i <= _maxPatternLength; i++)
         _pattern[i] = '\0';
+    _patternModeMS = 0;
 }
 
 /// @brief private for clear data
@@ -424,6 +446,7 @@ void MTkbd::clearData()
     _durationMS = 0;
     _releaseMS = 0;
     _repeatNr = 0;
+    _stableMS = 0;
 }
 
 /// @brief convert signle digit in a hex char
@@ -445,9 +468,21 @@ std::array<char, 2> MTkbd::byte_to_hex(uint8_t b)
 void MTkbd::patternReady()
 {
     _patternMode = PATTERN_READY;
+    _patternModeMS = 0;
     _patternString = String(_pattern);
     _keyCodeReady = true;
     _keyCode = 0;
     _lastKeyCode = 0;
     clearData();
+}
+
+void MTkbd::debug(uint8_t id, uint32_t dly)
+{
+    // Serial.printf("id:%3i rkc:%i lrkc:%i kc:%i lkc:%i rpt:%i dur:%i dwn:%s vld:%s rdy:%s  ms raw:%i stb:%i fpr:%i lpr:%i rel:%i pat:%i inf:%i  pat mode:%s  pos:%i  pattern:'%s'\r\n",
+    //               id, _rawKeyCode, _lastRawKeyCode, _keyCode, _lastKeyCode, _repeatNr, _durationMS,
+    //               _keyDown ? "DNW" : "UP ", _keyCodeValid ? "VLD" : "---", _keyCodeReady ? "RDY" : "---",
+    //               _rawReadMS, _stableMS, _firstPressMS, _lastPressMS, _releaseMS, _patternModeMS, _lastInfoMS,
+    //               pattern_s[_patternMode].c_str(), _patternPos, String(_pattern).c_str());
+    // Serial.printf("--- %i -------------------------------\r\n", esp_timer_get_time() / 1000);
+    // delay(dly);
 }

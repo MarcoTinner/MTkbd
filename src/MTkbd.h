@@ -82,12 +82,15 @@ public:
     void SetPatternTimeout(uint32_t timeoutMS = 30000);
     uint32_t GetPatternTimeout();
     uint8_t GetKeyCodeOfPin(uint8_t pin);
-    bool SetPatternKeyPin(uint32_t pin);
-    uint32_t GetPatternKeyPin();
+    void SetPatternKeyCode(uint8_t code);
+    uint8_t GetPatternKeyCode();
+    void StartPasswordMode(uint8_t timeoutSec = 10);
 
     void Loop();
     bool Available();
     void Handled();
+
+    bool outputEnabled = true; // enable OUTPORT prints -> default to Serial
 
 private:
     void clearPattern();
@@ -95,12 +98,13 @@ private:
     char hex_digit(uint8_t v);
     std::array<char, 2> byte_to_hex(uint8_t b);
     void patternReady();
+    void debug(uint8_t id = 0, uint32_t dly = 50);
 
     bool _initError = false;               // initialize error -> don't loop
     uint8_t _numKeys;                      // number of key pins
     uint8_t *_keys;                        // array of key pins
                                            //
-    uint8_t _patternKey = 0;               // pattern key
+    uint8_t _patternKeyCode = 0;           // pattern key
     char *_pattern;                        // saved key pattern
     String _patternString = "";            // Pattern as string
     uint8_t _patternPos = 0;               // pattern curscor pos
@@ -120,6 +124,7 @@ private:
     bool _waitHandled = false;             // wait until kbd handled req to call handled()
     uint32_t _rawReadMS = 0;               // keys read ms
     uint32_t _stableMS = 0;                // ms when keys are stable (no bounce)
+    uint32_t _patternModeMS = 0;           // ms when pattern mode start or last key change
     uint32_t _firstPressMS = 0;            // stable keycode first pressed
     uint32_t _lastPressMS = 0;             // stable keycode last pressed if same as before
     uint32_t _releaseMS = 0;               // key released

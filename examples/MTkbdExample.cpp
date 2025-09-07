@@ -8,7 +8,7 @@ MTkbd kbd;
 void setup()
 {
   Console.begin(115200);
-  delay(100);
+  delay(1000);
   
   Console.println(F("KeyBoard Library"));
 
