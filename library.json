@@ -15,8 +15,8 @@
     "type": "git",
     "url": "https://github.com/MarcoTinner/MTkbd.git"
   },
-  "version": "0.1.4",
+  "version": "0.1.5",
   "license": "MIT",
   "frameworks": "arduino",
-  "platforms": "ESP32, ESP8266"
+  "platforms": "*"
 }
